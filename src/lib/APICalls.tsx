@@ -3,7 +3,8 @@ import "server-only";
 async function validateAPICall(url: string): Promise<apiCall> {
     try {
         // Using force-cache helps for request to not be duplicated, this is at
-        // fetch level maybe could implement own cache of the actual satitized data
+        // fetch level maybe could implement own cache of the actual sanitized data
+
         const response = await fetch(url, { cache: "force-cache" });
 
         if (!response.ok) {
@@ -15,7 +16,7 @@ async function validateAPICall(url: string): Promise<apiCall> {
 
         if (data["Note"]) {
             // Invalid API call
-            // Here I need to limit since its the limit what is causing it
+            // Here I need to limit since its the limit what is causing it (or pay to get more calls)
             throw new Error(`API info message: ${data["Note"]}`);
         }
 
@@ -45,9 +46,18 @@ async function getSymbolQuery(symbol: string): Promise<symbol_simple_query> {
     var simple_symbol_api_response: apiCall = await validateAPICall(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${process.env.NEXT_PUBLIC_API_KEY}`);
 
     if (!simple_symbol_api_response.is_valid) {
-        //We get the demo IBM response
-        simple_symbol_api_response = await validateAPICall("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IBM&apikey=demo");
+        return {
+            symbol: "API_LIMIT",
+            open: 302.5,
+            high: 304.31,
+            low: 296.3450,
+            price: 296.7300,
+            change: -5.74,
+            change_percent: -1.8977,
+        };
+
     };
+
     return {
         symbol: simple_symbol_api_response.data["Global Quote"]["01. symbol"] ?? "NA",
         open: Number(simple_symbol_api_response.data["Global Quote"]["02. open"]) ?? 0,
@@ -68,7 +78,15 @@ export async function getSymbolsQuery(symbols: Array<string>): Promise<Array<sym
         })
     );
 
-    return resp_symbols;
+    var sanitized_symbols: Array<symbol_simple_query> = new Array<symbol_simple_query>();
+
+    resp_symbols.forEach((symbol: symbol_simple_query) => {
+        if (symbol.symbol != "API_LIMIT") {
+            sanitized_symbols.push(symbol);
+        }
+    })
+
+    return sanitized_symbols;
 }
 
 function parseDaySeries(raw: any): days_series {
